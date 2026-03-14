@@ -3,16 +3,16 @@
 Buscador de claves para direcciones de bitcoin
 
 El proyecto consta de 2 módulos:
-- El programa Bitcoin Key Hunter (bkh)
-- El script blockchair_addresses_filter
+- El programa **Bitcoin Key Hunter (bkh)**
+- El script **blockchair_addresses_filter**
 
 ## Bitcoin Key Hunter
 
 Programa hecho en **C++**.
 
 Existen 2 versiones separadas en el repositorio:
-* `cpp/win64`: para Windows.
-* `cpp/linux`: para Linux.
+* `cpp/win64`: para **Windows**.
+* `cpp/linux`: para **Linux**.
 
 El código fuente del `.cpp` es el mismo para ambas. Simplemente hay diferencias en el README y por los archivos `.dll` que se ven en la carpeta `win64`, los cuales son necesarios para poderse ejecutar en dicho sistema. 
 
@@ -22,7 +22,7 @@ El código fuente del `.cpp` es el mismo para ambas. Simplemente hay diferencias
 
 Se trata de un script en **Python** para crear ficheros con una lista de direcciones objetivo para el programa **bkh**. 
 
-* **Funcionamiento:** Necesita el dump que se puede descargar de la web **Blockchair** (ver los detalles en su propio README), pero podría utilizarse con cualquier otro archivo que respete el formato. 
+* **Funcionamiento:** Necesita el dump que se puede descargar de la web **Blockchair** (ver los detalles en su propio *README*), pero podría utilizarse con cualquier otro archivo que respete el formato. 
 * **Flexibilidad:** Incluso vale con crearse los ficheros de salida con las direcciones que nos interese simplemente e ignorar este script.
 
 ## Organización del Repositorio
