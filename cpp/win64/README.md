@@ -28,7 +28,10 @@ Versión para Windows.
 - Para que la compilación sea exitosa, verifica que tu entorno tenga:
     Librerías: libsecp256k1.a y libcrypto.a (dentro de /mingw64/lib/).
     Cabeceras: Carpeta /mingw64/include/openssl/ y /mingw64/include/secp256k1/.
-- Comando de compilación desde la raíz del proyecto: g++ -O3 -march=native -fopenmp bkh.cpp -o bkh.exe -lsecp256k1 -lcrypto
+- Comando de compilación desde la raíz del proyecto:
+  ```bash
+  g++ -O3 -march=native -fopenmp bkh.cpp -o bkh.exe -lsecp256k1 -lcrypto
+  ```
 Explicación de los parámetros:
     -O3: Activa las optimizaciones de velocidad de alto nivel.
     -march=native: Vital. Optimiza el ejecutable específicamente para el modelo de CPU (i5, i7, etc.).
