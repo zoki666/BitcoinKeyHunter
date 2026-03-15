@@ -35,7 +35,7 @@ Se trata de un script en **Python** para crear ficheros con una lista de direcci
 
 # Apoya el proyecto
 
-Si este buscador te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Key Hunter**, puedes enviar una propina a las siguientes direcciones:
+Si este proyecto te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Key Hunter**, puedes enviar una propina a las siguientes direcciones:
 
 | Moneda / Red | Dirección |
 | :--- | :--- |
