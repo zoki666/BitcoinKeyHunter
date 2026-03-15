@@ -1,0 +1,10 @@
+# Ejecutables específicos por carpeta
+win64/bkh.exe
+linux/bkh
+
+# Ficheros de objetivos (da igual dónde estén)
+**/objetivos.txt
+**/objetivos_hash160.txt
+
+# Ignorar configuración local de VS Code
+.vscode/
