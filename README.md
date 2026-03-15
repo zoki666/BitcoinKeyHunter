@@ -43,6 +43,12 @@ Si este buscador te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Ke
 | **Monero (XMR)** | `4A8mAK9SrCA3L2e7XuLxk8iWWfvNhqFVbTVz3q8zb1K6RisgTJtExWM3QPCzzheWz4GhcnMvCUKKfFoY869jPWBw1JxJnmj` |
 | **ERC20/BEP20 (Ethereum / Polygon / BNB...)** | `0xb3F62CEB2706c9E7a27c2Aec6E3e1bA422f8097e` |
 | **TRON (TRX) / USDT (TRC20)** | `TTmzFL2NZsD3yjHKCZg5Y7oBT8QXsJ8E6h` |
+| **SOLANA (SOL)** | `` |
+| **DOGECOIN (DOGE)** | `` |
+| **CARDANO (ADA)** | `` |
+| **SUI** | `` |
+| **BITCOIN CASH (BCH)** | `` |
+| **ZCASH (ZEC)** | `` |
 
 > [!TIP]
 > Para las donaciones en la red de Ethereum, puedes enviar tanto **ETH** como **POL (Polygon)**, **BNB** o cualquier token **ERC20/BEP20** a la misma dirección `0x`. ¡Gracias por tu apoyo!
