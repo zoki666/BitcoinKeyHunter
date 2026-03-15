@@ -1,6 +1,6 @@
 # Ejecutables específicos por carpeta
-win64/bkh.exe
-linux/bkh
+cpp/win64/bkh.exe
+cpp/linux/bkh
 
 # Ficheros de objetivos (da igual dónde estén)
 **/objetivos.txt
