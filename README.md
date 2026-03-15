@@ -53,7 +53,7 @@ Si este buscador te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Ke
 > [!TIP]
 > Para las donaciones en la red de Ethereum, puedes enviar tanto **ETH** como **POL (Polygon)**, **BNB** o cualquier token **ERC20/BEP20** a la misma dirección `0x`. ¡Gracias por tu apoyo!
 
-# Licencia (LICENSE)
+# Licencia (ver LICENSE para más detalle)
 
 Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la Licencia Pública General GNU (GPLv3) según lo publicado por la Free Software Foundation.
 
