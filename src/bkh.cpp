@@ -68,6 +68,7 @@
 #include <iomanip>
 #include <chrono>
 #include <omp.h>
+
 #ifdef _WIN32
     #include <secp256k1/secp256k1.h>
     #include <secp256k1/secp256k1_extrakeys.h>
@@ -75,6 +76,7 @@
     #include <secp256k1.h>
     #include <secp256k1_extrakeys.h>
 #endif
+
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
 #include <cstring>
@@ -91,6 +93,11 @@ bool found = false;
 bool keep_running = true;
 bool buscar_legacy = false, buscar_p2sh = false, buscar_segwit = false, buscar_taproot = false;
 
+// Contadores de alta capacidad (64 bits)
+unsigned long long total_keys = 0;
+unsigned long long falsos_positivos = 0;
+
+// Filtro Bloom de 2GB para colisiones minimas
 const uint64_t BLOOM_SIZE = 2147483648ULL; 
 vector<bool> bloom_filter(BLOOM_SIZE, false);
 
@@ -126,7 +133,7 @@ void hex_to_bytes(string hex, unsigned char* bytes, int limit) {
     }
 }
 
-// --- CODIFICACION BASE58 (LEGACY) ---
+// --- CODIFICACION BASE58 ---
 static const char* ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 string base58_encode(const unsigned char* data, size_t len) {
     vector<unsigned char> digits(len * 137 / 100 + 1, 0);
@@ -154,27 +161,6 @@ string to_legacy_addr(const unsigned char* h160) {
     return base58_encode(d, 25);
 }
 
-string to_p2sh_addr(const unsigned char* h160) {
-    unsigned char d[25]; d[0] = 0x05; memcpy(d+1, h160, 20);
-    unsigned char s1[32], s2[32];
-    SHA256(d, 21, s1); SHA256(s1, 32, s2);
-    memcpy(d+21, s2, 4);
-    return base58_encode(d, 25);
-}
-
-string to_bech32_addr(const unsigned char* h160) {
-    static const char* charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-    string res = "bc1q";
-    vector<int> data; uint32_t acc = 0, bits = 0;
-    for (int i = 0; i < 20; ++i) {
-        acc = (acc << 8) | h160[i]; bits += 8;
-        while (bits >= 5) { bits -= 5; data.push_back((acc >> bits) & 31); }
-    }
-    for (int v : data) res += charset[v];
-    return res; // Nota: Para bc1q se omite el checksum complejo en este print rapido
-}
-
-// --- SOPORTE TAPROOT BECH32M (BIP350) ---
 uint32_t bech32_polymod(const vector<int>& values) {
     uint32_t chk = 1;
     static uint32_t generator[] = {0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3};
@@ -188,18 +174,16 @@ uint32_t bech32_polymod(const vector<int>& values) {
 
 string to_taproot_addr(const unsigned char* pub32) {
     static const char* charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-    vector<int> values = {2, 3, 10, 1, 1}; // HRP "bc" + separator + version 1
+    vector<int> values = {2, 3, 10, 1, 1}; 
     uint32_t acc = 0, bits = 0;
     for (int i = 0; i < 32; ++i) {
         acc = (acc << 8) | pub32[i]; bits += 8;
         while (bits >= 5) { bits -= 5; values.push_back((acc >> bits) & 31); }
     }
     if (bits > 0) values.push_back((acc << (5 - bits)) & 31);
-    
     vector<int> chk_v = values; 
     for(int i=0; i<6; i++) chk_v.push_back(0);
-    uint32_t mod = bech32_polymod(chk_v) ^ 0x2bc830a3; // Bech32m constant
-    
+    uint32_t mod = bech32_polymod(chk_v) ^ 0x2bc830a3; 
     string res = "bc1p";
     for (size_t i = 5; i < values.size(); ++i) res += charset[values[i]];
     for (int i = 0; i < 6; ++i) res += charset[(mod >> (5 * (5 - i))) & 31];
@@ -232,10 +216,11 @@ string get_current_time() {
 int main(int argc, char* argv[]) {
     signal(SIGINT, signal_handler);
     int n_restar = 0;
-    string file_path = "../blockchair_addresses_filter/objetivos_identidad.txt";
+    // Ruta corregida por defecto
+    string file_path = "../blockchair_addresses_filter/objetivos_identidad.txt"; 
 
     cout << "=================================================" << endl;
-    cout << " BITCOIN KEY HUNTER v6.4 | HYBRID BECH32M" << endl;
+    cout << " BITCOIN KEY HUNTER v6.4" << endl;
     cout << "=================================================" << endl;
 
     string input;
@@ -247,15 +232,16 @@ int main(int argc, char* argv[]) {
     getline(cin, input);
     if (!input.empty()) n_restar = stoi(input);
 
-    cout << "[?] Buscar Legacy   (1...) [s/n]: "; getline(cin, input); buscar_legacy = (input == "s");
-    cout << "[?] Buscar P2SH     (3...) [s/n]: "; getline(cin, input); buscar_p2sh = (input == "s");
-    cout << "[?] Buscar SegWit   (bc1q) [s/n]: "; getline(cin, input); buscar_segwit = (input == "s");
-    cout << "[?] Buscar Taproot  (bc1p) [s/n]: "; getline(cin, input); buscar_taproot = (input == "s");
+    cout << "Marcar con + para incluir la busqueda de ese tipo de direcciones, o - para excluirla." << endl;
+    cout << "[?] Buscar Legacy   (1...) [+/-]: "; getline(cin, input); buscar_legacy = (input == "+");
+    cout << "[?] Buscar P2SH     (3...) [+/-]: "; getline(cin, input); buscar_p2sh = (input == "+");
+    cout << "[?] Buscar SegWit   (bc1q) [+/-]: "; getline(cin, input); buscar_segwit = (input == "+");
+    cout << "[?] Buscar Taproot  (bc1p) [+/-]: "; getline(cin, input); buscar_taproot = (input == "+");
 
     ifstream file(file_path);
     if (!file.is_open()) { cout << "[!] ERROR: No se pudo abrir: " << file_path << endl; return 1; }
 
-    cout << "[+] Cargando objetivos..." << endl;
+    cout << "[i] Cargando objetivos..." << endl;
     string line;
     while (getline(file, line)) {
         line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
@@ -276,11 +262,10 @@ int main(int argc, char* argv[]) {
     int hilos_uso = max(1, omp_get_num_procs() - n_restar);
     omp_set_num_threads(hilos_uso);
 
-    cout << "[+] H160: " << lista_h160.size() << " | P2TR: " << lista_pub32.size() << endl;
-    cout << "[+] Hilos activos: " << hilos_uso << endl;
+    cout << "[i] H160: " << lista_h160.size() << " | P2TR: " << lista_pub32.size() << endl;
+    cout << "[i] Hilos activos: " << hilos_uso << endl;
     cout << "=================================================\n" << endl;
 
-    unsigned long long total_keys = 0;
     auto start_time = chrono::high_resolution_clock::now();
 
     #pragma omp parallel
@@ -296,7 +281,7 @@ int main(int argc, char* argv[]) {
             secp256k1_pubkey pubkey;
             if (secp256k1_ec_pubkey_create(ctx, &pubkey, priv)) {
                 
-                // --- BUSQUEDA ECDSA (1, 3, bc1q) ---
+                // --- BUSQUEDA ECDSA (Legacy, P2SH, SegWit) ---
                 if (buscar_legacy || buscar_p2sh || buscar_segwit) {
                     size_t len_c = 33;
                     secp256k1_ec_pubkey_serialize(ctx, pub_c, &len_c, &pubkey, SECP256K1_EC_COMPRESSED);
@@ -314,11 +299,14 @@ int main(int argc, char* argv[]) {
                                 out << "FECHA: " << get_current_time() << " | PRIV: " << to_hex(priv, 32) << " | WIF: " << to_wif(priv, true) << endl;
                                 out.close();
                             }
+                        } else {
+                            #pragma omp atomic
+                            falsos_positivos++;
                         }
                     }
                 }
 
-                // --- BUSQUEDA SCHNORR (bc1p) ---
+                // --- BUSQUEDA SCHNORR (Taproot) ---
                 if (!found && buscar_taproot) {
                     secp256k1_xonly_pubkey xonly_pub;
                     secp256k1_xonly_pubkey_from_pubkey(ctx, &xonly_pub, NULL, &pubkey);
@@ -338,6 +326,9 @@ int main(int argc, char* argv[]) {
                                 out << "FECHA: " << get_current_time() << " | TAPROOT: " << addr_taproot << " | WIF: " << to_wif(priv, true) << endl;
                                 out.close();
                             }
+                        } else {
+                            #pragma omp atomic
+                            falsos_positivos++;
                         }
                     }
                 }
@@ -345,10 +336,16 @@ int main(int argc, char* argv[]) {
             #pragma omp atomic 
             total_keys++;
 
-            if (total_keys % 2000000 == 0 && omp_get_thread_num() == 0) {
+            // Actualizacion de pantalla (cada 1M para mayor fluidez)
+            if (total_keys % 1000000 == 0 && omp_get_thread_num() == 0) {
                 auto now = chrono::high_resolution_clock::now();
                 double elap = chrono::duration<double>(now - start_time).count();
-                cout << "\r[Vel: " << fixed << setprecision(2) << (total_keys/elap)/1000 << " K/s] Tot: " << total_keys / 1000000 << "M | " << to_hex(priv, 4) << "..." << flush;
+                double v_khs = (total_keys / elap) / 1000.0;
+                
+                cout << "\r[Vel: " << fixed << setprecision(2) << v_khs << " K/s] "
+                     << "Tot: " << (total_keys / 1000000) << "M | "
+                     << "FP: " << falsos_positivos << " | "
+                     << to_hex(priv, 4) << "..." << flush;
             }
         }
         secp256k1_context_destroy(ctx);

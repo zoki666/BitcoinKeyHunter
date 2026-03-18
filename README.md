@@ -1,6 +1,9 @@
 # Bitcoin Key Hunter
 
-Buscador multihilo de alta velocidad para claves privadas de Bitcoin. Soporta formatos Legacy, P2SH, SegWit y Taproot (Bech32m).
+Buscador multihilo de alta velocidad con CPU para claves privadas de Bitcoin. Soporta formatos Legacy, P2SH, SegWit y Taproot (Bech32m).
+
+> [!TIP]
+> Las posibilidades de exito no son cero, pero casi. Es un proceso de fuerza bruta pura. No es una inversion, es una loteria de dimensiones cosmicas donde el premio solo aparece por una carambola estadistica impredecible. El exito no depende necesariamente del tiempo, sino de un golpe de suerte instantaneo.
 
 ## Contenido del Proyecto
 

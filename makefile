@@ -25,11 +25,11 @@ all: $(TARGET)
 $(TARGET): $(SRC)
 	@echo "------------------------------------------"
 	@echo " [+] Iniciando compilacion v6.4 (Hybrid)..."
-	@mkdir -p $(BIN_DIR)
+	@if not exist $(BIN_DIR) mkdir $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(LIBS)
 	@echo "------------------------------------------"
 	@echo " [!] EXITO: $(TARGET) generado."
-	@echo " [!] Listo para buscar Legacy y Taproot."
+	@echo " [!] Listo para buscar."
 	@echo "------------------------------------------"
 
 clean:
