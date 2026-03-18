@@ -68,10 +68,12 @@
 #include <iomanip>
 #include <chrono>
 #include <omp.h>
+#include <map>
 
 #ifdef _WIN32
     #include <secp256k1/secp256k1.h>
     #include <secp256k1/secp256k1_extrakeys.h>
+    #include <windows.h>
 #else
     #include <secp256k1.h>
     #include <secp256k1_extrakeys.h>
@@ -88,28 +90,90 @@
 
 using namespace std;
 
+// --- TRADUCCIONES ---
+map<string, string> T;
+
+void load_languages() {
+    string lang = "en"; 
+#ifdef _WIN32
+    LANGID langId = GetUserDefaultUILanguage();
+    if (PRIMARYLANGID(langId) == LANG_SPANISH) lang = "es";
+#endif
+
+    // Buscamos lang.ini en la misma carpeta que el ejecutable
+    ifstream file("lang.ini");
+    string line;
+    bool found_section = false;
+
+    if (file.is_open()) {
+        while (getline(file, line)) {
+            // Limpieza de espacios y saltos de linea Windows (\r)
+            line.erase(0, line.find_first_not_of(" \t\r\n"));
+            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+            
+            if (line.empty() || line[0] == '#') continue;
+            
+            if (line == "[" + lang + "]") { 
+                found_section = true; 
+                continue; 
+            }
+            if (line[0] == '[' && line.back() == ']') { 
+                found_section = false; 
+                continue; 
+            }
+
+            if (found_section) {
+                size_t sep = line.find('=');
+                if (sep != string::npos) {
+                    string key = line.substr(0, sep);
+                    string value = line.substr(sep + 1);
+                    // Limpieza adicional de espacios alrededor del '='
+                    key.erase(key.find_last_not_of(" \t") + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    T[key] = value;
+                }
+            }
+        }
+        file.close();
+    }
+
+    // Fallback de seguridad si no existe el archivo o la seccion
+    if (T.empty()) {
+        T["title"] = "BITCOIN KEY HUNTER v6.4";
+        T["ask_file"] = "[?] File path";
+        T["ask_threads"] = "[?] Threads to FREE (0 for all): ";
+        T["ask_types"] = "Mark with + to include, or - to exclude.";
+        T["search_legacy"] = "[?] Search Legacy (1...) [+/-]: ";
+        T["search_p2sh"] = "[?] Search P2SH (3...) [+/-]: ";
+        T["search_segwit"] = "[?] Search SegWit (bc1q) [+/-]: ";
+        T["search_taproot"] = "[?] Search Taproot (bc1p) [+/-]: ";
+        T["loading"] = "[i] Loading targets...";
+        T["active_hilos"] = "[i] Active threads: ";
+        T["stop_msg"] = "\n[!] Stopping search...";
+        T["err_open"] = "[!] ERROR: Could not open: ";
+        T["found_h160"] = "!!! H160 TARGET FOUND !!!";
+        T["found_taproot"] = "!!! TAPROOT TARGET FOUND !!!";
+    }
+}
+
 // --- VARIABLES GLOBALES ---
 bool found = false;
 bool keep_running = true;
 bool buscar_legacy = false, buscar_p2sh = false, buscar_segwit = false, buscar_taproot = false;
-
-// Contadores de alta capacidad (64 bits)
 unsigned long long total_keys = 0;
 unsigned long long falsos_positivos = 0;
 
-// Filtro Bloom de 2GB para colisiones minimas
 const uint64_t BLOOM_SIZE = 2147483648ULL; 
 vector<bool> bloom_filter(BLOOM_SIZE, false);
-
 vector<string> lista_h160;   
 vector<string> lista_pub32;  
 
 void signal_handler(int signum) {
     keep_running = false;
-    cout << "\n[!] Deteniendo busqueda... Finalizando ciclos." << endl;
+    cout << T["stop_msg"] << endl;
 }
 
-// --- UTILIDADES DE FILTRADO ---
+// --- UTILIDADES ---
 void add_to_bloom(const unsigned char* h) {
     uint64_t* p = (uint64_t*)h;
     bloom_filter[p[0] % BLOOM_SIZE] = true;
@@ -133,7 +197,6 @@ void hex_to_bytes(string hex, unsigned char* bytes, int limit) {
     }
 }
 
-// --- CODIFICACION BASE58 ---
 static const char* ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 string base58_encode(const unsigned char* data, size_t len) {
     vector<unsigned char> digits(len * 137 / 100 + 1, 0);
@@ -152,26 +215,6 @@ string base58_encode(const unsigned char* data, size_t len) {
     return res;
 }
 
-// --- GENERACION DE DIRECCIONES ---
-string to_legacy_addr(const unsigned char* h160) {
-    unsigned char d[25]; d[0] = 0x00; memcpy(d+1, h160, 20);
-    unsigned char s1[32], s2[32];
-    SHA256(d, 21, s1); SHA256(s1, 32, s2);
-    memcpy(d+21, s2, 4);
-    return base58_encode(d, 25);
-}
-
-uint32_t bech32_polymod(const vector<int>& values) {
-    uint32_t chk = 1;
-    static uint32_t generator[] = {0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3};
-    for (int v : values) {
-        uint32_t top = chk >> 25;
-        chk = ((chk & 0x1ffffff) << 5) ^ v;
-        for (int i = 0; i < 5; i++) chk ^= ((top >> i) & 1) ? generator[i] : 0;
-    }
-    return chk;
-}
-
 string to_taproot_addr(const unsigned char* pub32) {
     static const char* charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
     vector<int> values = {2, 3, 10, 1, 1}; 
@@ -183,7 +226,14 @@ string to_taproot_addr(const unsigned char* pub32) {
     if (bits > 0) values.push_back((acc << (5 - bits)) & 31);
     vector<int> chk_v = values; 
     for(int i=0; i<6; i++) chk_v.push_back(0);
-    uint32_t mod = bech32_polymod(chk_v) ^ 0x2bc830a3; 
+    uint32_t chk = 1;
+    static uint32_t generator[] = {0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3};
+    for (int v : chk_v) {
+        uint32_t top = chk >> 25;
+        chk = ((chk & 0x1ffffff) << 5) ^ v;
+        for (int i = 0; i < 5; i++) chk ^= ((top >> i) & 1) ? generator[i] : 0;
+    }
+    uint32_t mod = chk ^ 0x2bc830a3;
     string res = "bc1p";
     for (size_t i = 5; i < values.size(); ++i) res += charset[values[i]];
     for (int i = 0; i < 6; ++i) res += charset[(mod >> (5 * (5 - i))) & 31];
@@ -214,34 +264,35 @@ string get_current_time() {
 
 // --- MAIN ---
 int main(int argc, char* argv[]) {
+    load_languages();
     signal(SIGINT, signal_handler);
+    
     int n_restar = 0;
-    // Ruta corregida por defecto
     string file_path = "../blockchair_addresses_filter/objetivos_identidad.txt"; 
 
     cout << "=================================================" << endl;
-    cout << " BITCOIN KEY HUNTER v6.4" << endl;
+    cout << " " << T["title"] << endl;
     cout << "=================================================" << endl;
 
     string input;
-    cout << "[?] Ruta del fichero [" << file_path << "]: ";
+    cout << T["ask_file"] << " [" << file_path << "]: ";
     getline(cin, input);
     if (!input.empty()) file_path = input;
 
-    cout << "[?] Hilos a LIBERAR (0 para todos): ";
+    cout << T["ask_threads"];
     getline(cin, input);
     if (!input.empty()) n_restar = stoi(input);
 
-    cout << "Marcar con + para incluir la busqueda de ese tipo de direcciones, o - para excluirla." << endl;
-    cout << "[?] Buscar Legacy   (1...) [+/-]: "; getline(cin, input); buscar_legacy = (input == "+");
-    cout << "[?] Buscar P2SH     (3...) [+/-]: "; getline(cin, input); buscar_p2sh = (input == "+");
-    cout << "[?] Buscar SegWit   (bc1q) [+/-]: "; getline(cin, input); buscar_segwit = (input == "+");
-    cout << "[?] Buscar Taproot  (bc1p) [+/-]: "; getline(cin, input); buscar_taproot = (input == "+");
+    cout << T["ask_types"] << endl;
+    cout << T["search_legacy"]; getline(cin, input); buscar_legacy = (input == "+");
+    cout << T["search_p2sh"]; getline(cin, input); buscar_p2sh = (input == "+");
+    cout << T["search_segwit"]; getline(cin, input); buscar_segwit = (input == "+");
+    cout << T["search_taproot"]; getline(cin, input); buscar_taproot = (input == "+");
 
     ifstream file(file_path);
-    if (!file.is_open()) { cout << "[!] ERROR: No se pudo abrir: " << file_path << endl; return 1; }
+    if (!file.is_open()) { cout << T["err_open"] << file_path << endl; return 1; }
 
-    cout << "[i] Cargando objetivos..." << endl;
+    cout << T["loading"] << endl;
     string line;
     while (getline(file, line)) {
         line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
@@ -249,8 +300,7 @@ int main(int argc, char* argv[]) {
         if (line.length() == 40) {
             unsigned char b[20]; hex_to_bytes(line, b, 20);
             add_to_bloom(b); lista_h160.push_back(line);
-        } 
-        else if (line.length() == 64) {
+        } else if (line.length() == 64) {
             unsigned char b32[32]; hex_to_bytes(line, b32, 32);
             add_to_bloom(b32); lista_pub32.push_back(line);
         }
@@ -263,7 +313,7 @@ int main(int argc, char* argv[]) {
     omp_set_num_threads(hilos_uso);
 
     cout << "[i] H160: " << lista_h160.size() << " | P2TR: " << lista_pub32.size() << endl;
-    cout << "[i] Hilos activos: " << hilos_uso << endl;
+    cout << T["active_hilos"] << hilos_uso << endl;
     cout << "=================================================\n" << endl;
 
     auto start_time = chrono::high_resolution_clock::now();
@@ -280,20 +330,17 @@ int main(int argc, char* argv[]) {
 
             secp256k1_pubkey pubkey;
             if (secp256k1_ec_pubkey_create(ctx, &pubkey, priv)) {
-                
-                // --- BUSQUEDA ECDSA (Legacy, P2SH, SegWit) ---
                 if (buscar_legacy || buscar_p2sh || buscar_segwit) {
                     size_t len_c = 33;
                     secp256k1_ec_pubkey_serialize(ctx, pub_c, &len_c, &pubkey, SECP256K1_EC_COMPRESSED);
                     SHA256(pub_c, 33, sha); RIPEMD160(sha, 32, h160_c);
-                    
                     if (check_bloom(h160_c)) {
                         string h160_hex = to_hex(h160_c, 20);
                         if (binary_search(lista_h160.begin(), lista_h160.end(), h160_hex)) {
                             #pragma omp critical
                             {
                                 found = true;
-                                cout << "\n\n!!! OBJETIVO H160 ENCONTRADO !!!" << endl;
+                                cout << T["found_h160"] << endl;
                                 cout << "WIF: " << to_wif(priv, true) << " | HEX: " << to_hex(priv, 32) << endl;
                                 ofstream out("HALLAZGO.txt", ios::app);
                                 out << "FECHA: " << get_current_time() << " | PRIV: " << to_hex(priv, 32) << " | WIF: " << to_wif(priv, true) << endl;
@@ -305,13 +352,10 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-
-                // --- BUSQUEDA SCHNORR (Taproot) ---
                 if (!found && buscar_taproot) {
                     secp256k1_xonly_pubkey xonly_pub;
                     secp256k1_xonly_pubkey_from_pubkey(ctx, &xonly_pub, NULL, &pubkey);
                     secp256k1_xonly_pubkey_serialize(ctx, pub32, &xonly_pub);
-                    
                     if (check_bloom(pub32)) {
                         string pub32_hex = to_hex(pub32, 32);
                         if (binary_search(lista_pub32.begin(), lista_pub32.end(), pub32_hex)) {
@@ -319,9 +363,8 @@ int main(int argc, char* argv[]) {
                             {
                                 found = true;
                                 string addr_taproot = to_taproot_addr(pub32);
-                                cout << "\n\n!!! OBJETIVO TAPROOT ENCONTRADO !!!" << endl;
-                                cout << "ADDR: " << addr_taproot << endl;
-                                cout << "WIF:  " << to_wif(priv, true) << endl;
+                                cout << T["found_taproot"] << endl;
+                                cout << "ADDR: " << addr_taproot << "\nWIF: " << to_wif(priv, true) << endl;
                                 ofstream out("HALLAZGO.txt", ios::app);
                                 out << "FECHA: " << get_current_time() << " | TAPROOT: " << addr_taproot << " | WIF: " << to_wif(priv, true) << endl;
                                 out.close();
@@ -336,14 +379,12 @@ int main(int argc, char* argv[]) {
             #pragma omp atomic 
             total_keys++;
 
-            // Actualizacion de pantalla (cada 1M para mayor fluidez)
-            if (total_keys % 1000000 == 0 && omp_get_thread_num() == 0) {
+            if (total_keys % 100000 == 0 && omp_get_thread_num() == 0) {
                 auto now = chrono::high_resolution_clock::now();
                 double elap = chrono::duration<double>(now - start_time).count();
                 double v_khs = (total_keys / elap) / 1000.0;
-                
                 cout << "\r[Vel: " << fixed << setprecision(2) << v_khs << " K/s] "
-                     << "Tot: " << (total_keys / 1000000) << "M | "
+                     << "Tot: " << (total_keys / 1000000.0) << "M | "
                      << "FP: " << falsos_positivos << " | "
                      << to_hex(priv, 4) << "..." << flush;
             }

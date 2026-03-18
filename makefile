@@ -1,21 +1,29 @@
 # --- VARIABLES ---
 CXX = g++
-# Agregamos -std=c++17 para asegurar compatibilidad con las funciones modernas de bkh v6.4
-CXXFLAGS = -O3 -march=native -fopenmp -std=c++17
-# El orden de LIBS es importante: primero la logica de secp256k1, luego la criptografia base
+CXXFLAGS = -O3 -march=native -fopenmp -std=c++17 -Wno-deprecated-declarations
 LIBS = -lsecp256k1 -lcrypto
 
-# Directorios
+# Directorios y Archivos
 SRC = src/bkh.cpp
+LANG_SRC = src\lang.ini
 BIN_DIR = bin
 
-# Deteccion de OS para el binario
+# Deteccion de OS y ajuste de comandos
 ifeq ($(OS),Windows_NT)
-    TARGET = $(BIN_DIR)/bkh.exe
-    # En Windows a veces es necesario enlazar ws2_32 para funciones de red/entropy de openssl
+    TARGET = $(BIN_DIR)\bkh.exe
+    LANG_DEST = $(BIN_DIR)\lang.ini
     LIBS += -lws2_32
+    RM = del /Q /F
+    CP = copy /Y
+    MKDIR = if not exist $(BIN_DIR) mkdir $(BIN_DIR)
+    CLEAN_CMD = $(RM) "$(TARGET)" "$(LANG_DEST)" 2>nul || exit 0
 else
     TARGET = $(BIN_DIR)/bkh
+    LANG_DEST = $(BIN_DIR)/lang.ini
+    RM = rm -rf
+    CP = cp
+    MKDIR = mkdir -p $(BIN_DIR)
+    CLEAN_CMD = $(RM) $(TARGET) $(LANG_DEST)
 endif
 
 # --- REGLAS ---
@@ -23,26 +31,17 @@ endif
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	@echo "------------------------------------------"
-	@echo " [+] Iniciando compilacion v6.4 (Hybrid)..."
-	@if not exist $(BIN_DIR) mkdir $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(LIBS)
-	@echo "------------------------------------------"
-	@echo " [!] EXITO: $(TARGET) generado."
-	@echo " [!] Listo para buscar."
-	@echo "------------------------------------------"
+	@echo ------------------------------------------
+	@echo  [+] Iniciando compilacion v6.4...
+	@$(MKDIR)
+	@$(CXX) $(CXXFLAGS) $(SRC) -o "$(TARGET)" $(LIBS)
+	@echo  [+] Intentando copiar: $(LANG_SRC) a $(LANG_DEST)
+	@$(CP) "$(LANG_SRC)" "$(LANG_DEST)" >nul
+	@echo ------------------------------------------
+	@echo  [!] EXITO: $(TARGET) generado y configurado.
+	@echo ------------------------------------------
 
 clean:
-	@rm -rf $(BIN_DIR)/bkh $(BIN_DIR)/bkh.exe
-	@echo " [+] Limpieza completada."
-
-help:
-	@echo "--- Ayuda del Makefile Hunter ---"
-	@echo "Sistema detectado: $(OS)"
-	@echo "Compilador:       $(CXX)"
-	@echo "Destino:          $(TARGET)"
-	@echo "--------------------------"
-	@echo "Comandos disponibles:"
-	@echo "  make            - Compila el buscador"
-	@echo "  make clean      - Borra los binarios"
-	@echo "  make help       - Muestra esta info"
+	@echo  [+] Limpiando binarios...
+	@$(CLEAN_CMD)
+	@echo  [+] Limpieza completada.

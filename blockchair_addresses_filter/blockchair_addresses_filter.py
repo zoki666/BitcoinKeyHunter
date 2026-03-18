@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------------------------
 # SCRIPT: Blockchair Addresses Filter (blockchair_addresses_filter.py)
 #         Generador de objetivos.txt y objetivos_identidad.txt (H160 + Taproot)
-# VERSION: 3.0 (Soporte Universal + Limpieza Agresiva de Datos)
+# VERSION: 3.1 (Soporte Multi-idioma + Limpieza Agresiva de Datos)
 # ---------------------------------------------------------------------------------------
 # DIRECCIONES OBJETIVO VALIDAS (SOLO SINGLE-SIG / ACCESO DIRECTO):
 #
@@ -35,10 +35,60 @@ import gzip
 import time
 import importlib.util
 import subprocess
+import locale
+
+# --- DETECCION DE IDIOMA ---
+def get_lang():
+    try:
+        lang_code = locale.getdefaultlocale()[0]
+        if lang_code and lang_code.startswith('es'):
+            return 'es'
+    except:
+        pass
+    return 'en'
+
+LANG = get_lang()
+
+TEXTS = {
+    'es': {
+        'title': "BITCOIN ADDRESS FILTRATOR v3.1",
+        'archivo': "[+] Archivo:",
+        'minimo': "[+] Minimo:",
+        'dep_inst': "[+] Instalando dependencia necesaria: base58...",
+        'err_no_file': "[!] ERROR: No se encuentra",
+        'interrupt': "\n[!] Proceso interrumpido por el usuario.",
+        'err_critico': "\n[!] ERROR CRITICO:",
+        'progreso': "\r[+] {prog:.1f}% | H160: {h} | P2TR: {p} | Leidas: {t}",
+        'stats_t': "ESTADISTICAS DE FILTRADO",
+        't_total': "[+] Tiempo total:",
+        'obj_h160': "[+] Objetivos H160:",
+        'obj_p2tr': "[+] Objetivos P2TR:",
+        't_export': "[+] Total exportado:",
+        'arch_gen': "[*] Archivos generados:"
+    },
+    'en': {
+        'title': "BITCOIN ADDRESS FILTRATOR v3.1",
+        'archivo': "[+] File:",
+        'minimo': "[+] Minimum:",
+        'dep_inst': "[+] Installing necessary dependency: base58...",
+        'err_no_file': "[!] ERROR: Cannot find",
+        'interrupt': "\n[!] Process interrupted by user.",
+        'err_critico': "\n[!] CRITICAL ERROR:",
+        'progreso': "\r[+] {prog:.1f}% | H160: {h} | P2TR: {p} | Read: {t}",
+        'stats_t': "FILTERING STATISTICS",
+        't_total': "[+] Total time:",
+        'obj_h160': "[+] H160 Targets:",
+        'obj_p2tr': "[+] P2TR Targets:",
+        't_export': "[+] Total exported:",
+        'arch_gen': "[*] Generated files:"
+    }
+}
+
+T = TEXTS[LANG]
 
 # Gestion de dependencias (Solo base58 para Legacy/P2SH)
 if importlib.util.find_spec("base58") is None:
-    print("[+] Instalando dependencia necesaria: base58...")
+    print(T['dep_inst'])
     subprocess.check_call([sys.executable, "-m", "pip", "install", "base58"])
 
 import base58
@@ -47,12 +97,11 @@ import base58
 ARCHIVO_ENTRADA = "blockchair_bitcoin_addresses_latest.tsv.gz"
 SALIDA_ID = "objetivos_identidad.txt"
 SALIDA_ADDR = "objetivos.txt"
-MIN_SATOSHIS = 10000
+MIN_SATOSHIS = 1000
 
 def addr_to_identity(address):
     try:
         address = address.strip()
-        # Alfabeto Bech32 oficial (BIP173 / BIP341)
         CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
         # 1. LEGACY / P2SH (1... o 3...)
@@ -64,17 +113,15 @@ def addr_to_identity(address):
             pos = address.rfind('1')
             if pos < 2: return None
             
-            data_str = address[pos+1:-6] # Excluir prefijo y checksum
+            data_str = address[pos+1:-6] 
             try:
-                # Mapeo de bits a valores de 5-bits
                 values = [CHARSET.find(c) for c in data_str]
                 if -1 in values: return None
                 
-                # Conversion de base32 (5-bits) a hex (8-bits)
                 acc = 0
                 bits = 0
                 ret = []
-                for value in values[1:]: # Omitir witness version
+                for value in values[1:]:
                     acc = (acc << 5) | value
                     bits += 5
                     while bits >= 8:
@@ -83,12 +130,9 @@ def addr_to_identity(address):
                 
                 res = bytes(ret).hex()
                 
-                # Validacion de longitud por tipo de direccion
-                # P2WPKH (bc1q corto) -> 20 bytes
                 if address.startswith('bc1q') and len(address) == 42:
                     if len(res) == 40: return res
                 
-                # P2TR (bc1p) -> 32 bytes (X-Only Public Key)
                 if address.startswith('bc1p'):
                     if len(res) == 64: return res
                     
@@ -98,10 +142,10 @@ def addr_to_identity(address):
 
 # --- INICIO DEL PROCESO ---
 print("\n" + "="*60)
-print(" BITCOIN ADDRESS FILTRATOR v3.0 - PRODUCTION READY")
+print(f" {T['title']}")
 print("="*60)
-print(f"[+] Archivo: {ARCHIVO_ENTRADA}")
-print(f"[+] Minimo:  {MIN_SATOSHIS} satoshis")
+print(f"{T['archivo']} {ARCHIVO_ENTRADA}")
+print(f"{T['minimo']}  {MIN_SATOSHIS} satoshis")
 print("="*60 + "\n")
 
 count_total = 0
@@ -110,7 +154,7 @@ count_ext = 0
 start_time = time.time()
 
 if not os.path.exists(ARCHIVO_ENTRADA):
-    print(f"[!] ERROR: No se encuentra {ARCHIVO_ENTRADA}")
+    print(f"{T['err_no_file']} {ARCHIVO_ENTRADA}")
     sys.exit(1)
 
 tamanio_total = os.path.getsize(ARCHIVO_ENTRADA)
@@ -135,7 +179,6 @@ try:
                 address = parts[0].strip()
                 
                 try:
-                    # Limpieza agresiva de balance (solo digitos)
                     balance_str = ''.join(c for c in parts[1] if c.isdigit())
                     balance = int(balance_str)
                 except: continue
@@ -153,26 +196,25 @@ try:
                             f_id.write(identidad + "\n")
                             f_ad.write(address + "\n")
                 
-                # Actualizacion de progreso cada 500k lineas
                 if count_total % 500000 == 0:
                     progreso = (f_raw.tell() / tamanio_total) * 100
-                    sys.stdout.write(f"\r[+] {progreso:.1f}% | H160: {count_h160} | P2TR: {count_ext} | Leidas: {count_total}")
+                    sys.stdout.write(T['progreso'].format(prog=progreso, h=count_h160, p=count_ext, t=count_total))
                     sys.stdout.flush()
 
 except KeyboardInterrupt:
-    print("\n[!] Proceso interrumpido por el usuario.")
+    print(T['interrupt'])
 except Exception as e:
-    print(f"\n[!] ERROR CRITICO: {e}")
+    print(f"{T['err_critico']} {e}")
 
 # --- ESTADISTICAS FINALES ---
 duracion = time.time() - start_time
 print("\n\n" + "="*60)
-print(" ESTADISTICAS DE FILTRADO")
+print(f" {T['stats_t']}")
 print("="*60)
-print(f"[+] Tiempo total:    {duracion:.2f} segundos")
-print(f"[+] Objetivos H160:  {count_h160:,}")
-print(f"[+] Objetivos P2TR:  {count_ext:,}")
-print(f"[+] Total exportado: {count_h160 + count_ext:,}")
+print(f"{T['t_total']}     {duracion:.2f} segundos")
+print(f"{T['obj_h160']}   {count_h160:,}")
+print(f"{T['obj_p2tr']}   {count_ext:,}")
+print(f"{T['t_export']}  {count_h160 + count_ext:,}")
 print("-" * 60)
-print(f"[*] Archivos generados: {SALIDA_ID}, {SALIDA_ADDR}")
+print(f"{T['arch_gen']} {SALIDA_ID}, {SALIDA_ADDR}")
 print("="*60 + "\n")

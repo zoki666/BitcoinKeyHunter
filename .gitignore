@@ -1,11 +1,13 @@
-# Ejecutables específicos por carpeta
+# Ejecutables especificos por carpeta
 bin/bkh.exe
 bin/bkh
+#Traduccion del ejecutable
+bin/lang.ini
 
-# Ficheros de objetivos (da igual dónde estén)
+# Ficheros de objetivos (da igual donde esten)
 **/blockchair*
 **/objetivos.txt
 **/objetivos_identidad.txt
 
-# Ignorar configuración local de VS Code
+# Ignorar configuracion local de VS Code
 .vscode/
