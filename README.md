@@ -1,39 +1,112 @@
-# BitcoinKeyHunter
+# Bitcoin Key Hunter
 
-Buscador de claves para direcciones de bitcoin
+Buscador multihilo de alta velocidad para claves privadas de Bitcoin. Soporta formatos Legacy, P2SH, SegWit y Taproot (Bech32m).
 
-El proyecto consta de 2 módulos:
-- El programa **Bitcoin Key Hunter (bkh)**
-- El script **blockchair_addresses_filter**
+## Contenido del Proyecto
 
-## Bitcoin Key Hunter
+El proyecto consta de 2 modulos principales:
 
-Programa hecho en **C++**.
+1.  **Bitcoin Key Hunter (bkh)**: Motor de busqueda masiva en **C++**. Utiliza OpenMP para paralelismo y libsecp256k1 para criptografia de curva eliptica.
+2.  **blockchair_addresses_filter**: Script en **Python** para procesar dumps de Blockchair y extraer las identidades binarias (Hash160 y X-Only Pubkeys).
 
-Existen 2 versiones separadas en el repositorio:
-* `cpp/win64`: para **Windows**.
-* `cpp/linux`: para **Linux**.
-
-El código fuente del `.cpp` es el mismo para ambas. Simplemente hay diferencias en el README y por los archivos `.dll` que se ven en la carpeta `win64`, los cuales son necesarios para poderse ejecutar en dicho sistema. 
-
-> **Nota:** Se requiere compilar para generar el binario específico para la máquina en cuestión. Se explica todo el proceso en su respectivo README dentro de cada carpeta.
-
-## blockchair_addresses_filter
-
-Se trata de un script en **Python** para crear ficheros con una lista de direcciones objetivo para el programa **bkh**. 
-
-* **Funcionamiento:** Necesita el dump que se puede descargar de la web **Blockchair** (ver los detalles en su propio *README*), pero podría utilizarse con cualquier otro archivo que respete el formato. 
-* **Flexibilidad:** Incluso vale con crearse los ficheros de salida con las direcciones que nos interese simplemente e ignorar este script.
-
-## Organización del Repositorio
+### Organizacion del Repositorio
 
 | Carpeta | Contenido |
 | :--- | :--- |
-| `cpp/win64` | Código y librerías DLL para entorno Windows. |
-| `cpp/linux` | Código e instrucciones para entorno Linux/Ubuntu. |
-| `python` | Script de filtrado y preparación de objetivos. |
+| `/` | Makefile universal y este README. |
+| `/bin/` | Binarios generados y librerias (.dll) para Windows. |
+| `/src/` | Codigo fuente en C++ (bkh.cpp). |
+| `/blockchair_addresses_filter/` | Script Python v3.0 y ficheros de objetivos. |
 
-# Apoya el proyecto
+---
+
+## COMPILACION RECOMENDADA
+
+### Para WINDOWS (MSYS2)
+
+1.  **Preparacion del Entorno**:
+    - Instala **MSYS2** (https://www.msys2.org/).
+    - Abre la terminal **"MSYS2 MinGW 64-bit"**.
+    - Ejecuta:
+      ```bash
+      pacman -Syu
+      pacman -S --needed git make mingw-w64-x86_64-gcc mingw-w64-x86_64-openssl mingw-w64-x86_64-libgomp mingw-w64-x86_64-autotools
+      ```
+
+2.  **Instalacion de libsecp256k1**:
+    ```bash
+    git clone [https://github.com/bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1)
+    cd secp256k1
+    ./autogen.sh
+    ./configure --enable-module-recovery --enable-experimental --enable-module-schnorrsig --enable-module-extrakeys
+    make -j$(nproc)
+    make install
+    ```
+
+3.  **Compilacion del Hunter**:
+    Navega a la raiz del proyecto y ejecuta:
+    ```bash
+    mingw32-make clean
+    mingw32-make
+    ```
+
+### Para LINUX (Ubuntu/Debian)
+
+1.  **Dependencias**:
+    ```bash
+    sudo apt update && sudo apt install build-essential libssl-dev git automake libtool -y
+    ```
+
+2.  **Instalacion de libsecp256k1**:
+    (Mismos pasos que en Windows pero con sudo al final):
+    ```bash
+    sudo make install
+    sudo ldconfig
+    ```
+
+3.  **Compilacion**:
+    ```bash
+    make clean
+    make
+    ```
+
+---
+
+## LIBRERIAS REQUERIDAS (DLLs en Windows)
+
+Para ejecutar el .exe en Windows fuera de MSYS2, asegurese de que estas DLLs esten en la carpeta `/bin`:
+- `libsecp256k1-X.dll`, `libcrypto-3-x64.dll`, `libgomp-1.dll`, `libwinpthread-1.dll`, `libstdc++-6.dll`, `libgcc_s_seh-1.dll`.
+
+---
+
+## EJECUCION
+
+El programa se controla por consola:
+
+- **Uso total de CPU**: `./bkh` (o `bkh.exe`)
+- **Liberar nucleos**: `./bkh -n2` (deja 2 hilos libres).
+- **Fichero personalizado**: `./bkh -f"ruta/lista.txt"`
+
+---
+
+## OBTENCION DE OBJETIVOS
+
+El Hunter no busca direcciones al azar, busca **Identidades Binarias**:
+1.  **Legacy/P2SH/SegWit**: IDs de 40 caracteres hex (Hash160).
+2.  **Taproot (bc1p)**: IDs de 64 caracteres hex (X-Only Pubkey).
+
+**Proceso**:
+1.  Descarga el dump .tsv.gz de **Blockchair**.
+2.  Ejecuta `blockchair_addresses_filter.py` para generar `objetivos_identidad.txt`.
+3.  Inicia el Hunter y selecciona los tipos de direccion a buscar.
+
+---
+
+**Aviso**: Este software es para fines educativos y de auditoria. El autor no se hace responsable de su uso.
+
+---
+
+# APOYA EL PROYECTO
 
 Si este proyecto te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Key Hunter**, puedes enviar una propina a las siguientes direcciones:
 
@@ -52,17 +125,3 @@ Si este proyecto te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Ke
 
 > [!TIP]
 > Para las donaciones en la red de Ethereum, puedes enviar tanto **ETH** como **POL (Polygon)**, **BNB** o cualquier token **ERC20/BEP20** a la misma dirección `0x`. ¡Gracias por tu apoyo!
-
-# Licencia (ver LICENSE para más detalle)
-
-Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la Licencia Pública General GNU (GPLv3) según lo publicado por la Free Software Foundation.
-
-Este programa se distribuye con la esperanza de que sea útil, pero SIN NINGUNA GARANTÍA; incluso sin la garantía implícita de COMERCIABILIDAD o IDONEIDAD PARA UN PROPÓSITO PARTICULAR. 
-
-Al ser una licencia GPLv3:
-
-1\. Debes citarme como autor original.
-
-2\. Cualquier trabajo derivado de este código debe ser también abierto y bajo esta misma licencia.
-
-3\. El autor no se hace responsable de los daños o el uso que se le dé a esta herramienta.

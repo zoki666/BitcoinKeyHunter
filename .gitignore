@@ -1,10 +1,11 @@
 # Ejecutables específicos por carpeta
-cpp/win64/bkh.exe
-cpp/linux/bkh
+bin/bkh.exe
+bin/bkh
 
 # Ficheros de objetivos (da igual dónde estén)
+**/blockchair*
 **/objetivos.txt
-**/objetivos_hash160.txt
+**/objetivos_identidad.txt
 
 # Ignorar configuración local de VS Code
 .vscode/

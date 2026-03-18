@@ -1,46 +1,67 @@
 # BLOCKCHAIR ADDRESSES FILTER
 
-Script en python que genera una lista de direcciones válidas para Bitcoin Key Hunter a partir un dump de blockchair (válido para utilizar de cualquier fichero origen, mientras se respete el mismo formato).
+Script en Python que genera una lista de direcciones validas para Bitcoin Key Hunter a partir de un dump de Blockchair. Es compatible con cualquier fichero origen que respete el formato de columnas (address y balance).
 
-¿Cómo obtener los ficheros de objetivos a partir de 'blockchair\_bitcoin\_addresses\_latest.tsv.gz' adaptados para Bitcoin Key Hunter?
-1º Conseguir 'blockchair\_bitcoin\_addresses\_latest.tsv.gz' de 'https://blockchair.com/dumps' en la sección 'Bitcoin/Addresses'.
-2º Dejar el fichero en la misma ruta que python blockchair\_addresses\_filter.py
-3º Ejecutar blockchair\_addresses\_filter.py: python blockchair\_addresses\_filter.py
-4º Se generan los ficheros objetivos.txt (rutas legibles) y objetivos\_hash160.txt (rutas con id reales hash160, útil para Bitcoin Key Hunter) en la misma ruta.
+## Como obtener los ficheros de objetivos
+
+1. **Conseguir el Dump**: Descarga 'blockchair_bitcoin_addresses_latest.tsv.gz' desde '[https://blockchair.com/dumps](https://blockchair.com/dumps)' en la seccion 'Bitcoin/Addresses'.
+2. **Ubicacion**: Deja el fichero en la misma ruta que el script 'blockchair_addresses_filter.py'.
+3. **Ejecucion**: Ejecuta el script con: `python blockchair_addresses_filter.py`
+4. **Resultados**: Se generaran dos ficheros en la misma carpeta:
+   - **objetivos.txt**: Rutas legibles (direcciones tal cual).
+   - **objetivos_identidad.txt**: IDs binarios (40 hex para Legacy/P2SH/SegWit y 64 hex para Taproot). Este es el que usa el Hunter en C++.
 
 ## ¿Puedo crearme un fichero de prueba?
 
-Sí, simplemente sigue estos pasos:
+Si, puedes crear un entorno de test pequeño siguiendo estos pasos:
 
-1. Crear un fichero de texto llamado blockchair\_bitcoin\_addresses\_latest.tsv
-2. El fichero es texto plano, con una cabecera y líneas de datos. Sólo son 2 campos separados (address y balance) por un tabulador.
-3. El script sólo se quedará por defecto con las que tenga un balence mínimo de 0.00001 BTC (1000 Satoshis).
-4. Sólo se quedará con direcciones que comiencen por 1... (Legacy) o bc1q... (SegWit Nativo).
-5. Comprimir el fichero de texto plano en formato Gzip (.gz) dejándolo con el nombre "blockchair\_bitcoin\_addresses\_latest.tsv.gz". Comando: gzip -c blockchair\_bitcoin\_addresses\_latest.tsv > blockchair\_bitcoin\_addresses\_latest.tsv.gz
+1. Crear un fichero de texto llamado `blockchair_bitcoin_addresses_latest.tsv`.
+2. El fichero es texto plano, con una cabecera y lineas de datos. Son 2 campos (address y balance) separados por un **TABULADOR**.
+3. **Filtros por defecto (v3.0)**:
+   - Balance minimo: 10,000 Satoshis (0.0001 BTC).
+   - Formatos: 1... (Legacy), 3... (P2SH), bc1q... (SegWit) o bc1p... (Taproot).
+4. **Comprimir**: El script requiere el formato Gzip (.gz). Comando:
+   `gzip -c blockchair_bitcoin_addresses_latest.tsv > blockchair_bitcoin_addresses_latest.tsv.gz`
 
-### Ejemplo del fichero correctamente formateado (campos separados por tabulador):
+### Ejemplo de fichero correctamente formateado (Campos con TAB):
 
 ```text
-address                                     balance
-1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa          5000067342
-12cbQL9vGvssqf2qhwPZp7S9oQ9Y1P78sH          10
-3EktnHQD7RiX3AQMv6qqYvS7oR2vX3AQMv          250000000
-bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh  45000
+address balance
+1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa  5000067342
+1HLoD9E4SDaeRGYmScyGn2cg2QHWyjiNe8  500
+3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy  2500000
+3EbS1Y38AmGZS7Fv2GgJvP1iGZ7S9oQ9Y1  9900
+bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh  120000
+bc1qrp33g0q5c5cyas34c98f983kyf3zfsse0dk30y  8500
+bc1p5d7rjq7ndv493p83kkfjhx0wlh5d7rjq7ndv49  300000
+bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4  1500
+bc1qgdjqv083q3Yxy2kgdygjrsqtzq2n0yrf2493p83 50000
+4A8mAK9SrCA3L2e7XuLxk8iWWfvNhqFVbTVz3q8zb1  1000000
 ```
 
-### Implicaciones del ejemplo:
+#### Analisis del ejemplo:
 
-* Primera línea es la cabecera.
-* Segunda línea es válida.
-* Tercera línea se descarta por bajo balance.
-* Cuarta línea se descarta por el comienzo de la dirección.
-* Quinta línea se válida.
+```text
+Direccion,Tipo,Balance (Sats),¿Se acepta?,Motivo
+1A1z...,Legacy,"5,000,067,342",SI,Formato correcto y balance alto.
+1HLo...,Legacy,500,NO,"Balance inferior a 10,000 satoshis."
+3J98...,P2SH,"2,500,000",SI,Formato compatible y balance alto.
+3EbS...,P2SH,"9,900",NO,"Por debajo del limite de 10,000 sats."
+bc1q... (corto),SegWit,"120,000",SI,P2WPKH (Single Sig) detectado.
+bc1q... (corto),SegWit,"8,500",NO,Balance insuficiente.
+bc1p...,Taproot,"300,000",SI,Objetivo prioritario v6.4.
+bc1p...,Taproot,"1,500",NO,Balance insuficiente.
+bc1q... (largo),P2WSH,"50,000",NO,Ignorado por script v3.0 (Suelen ser multifirmas).
+4A8m...,Monero/Otros,"1,000,000",NO,"No empieza por 1, 3 o bc1."
+```
 
 ### Ficheros generados:
 
-* Generará 2 ficheros: *objetivos.txt* (rutas legibles) y *objetivos\_hash160.txt* (rutas con id reales hash160, útil para Bitcoin Key Hunter versión **C++**) con la información emparejada línea a línea para ambos ficheros.
+- objetivos.txt: Direcciones en formato texto para verificacion visual.
 
-# Apoya el proyecto
+- objetivos_identidad.txt: Contiene las identidades procesadas (Hash160 para ECDSA y X-Only Pubkey para Schnorr/Taproot). Este archivo es el corazon de la busqueda masiva en el programa Bitcoin Key Hunter version C++.
+
+# APOYA EL PROYECTO
 
 Si este proyecto te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Key Hunter**, puedes enviar una propina a las siguientes direcciones:
 
@@ -59,17 +80,3 @@ Si este proyecto te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Ke
 
 > [!TIP]
 > Para las donaciones en la red de Ethereum, puedes enviar tanto **ETH** como **POL (Polygon)**, **BNB** o cualquier token **ERC20/BEP20** a la misma dirección `0x`. ¡Gracias por tu apoyo!
-
-# Licencia (ver LICENSE para más detalle)
-
-Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la Licencia Pública General GNU (GPLv3) según lo publicado por la Free Software Foundation.
-
-Este programa se distribuye con la esperanza de que sea útil, pero SIN NINGUNA GARANTÍA; incluso sin la garantía implícita de COMERCIABILIDAD o IDONEIDAD PARA UN PROPÓSITO PARTICULAR. 
-
-Al ser una licencia GPLv3:
-
-1\. Debes citarme como autor original.
-
-2\. Cualquier trabajo derivado de este código debe ser también abierto y bajo esta misma licencia.
-
-3\. El autor no se hace responsable de los daños o el uso que se le dé a esta herramienta.

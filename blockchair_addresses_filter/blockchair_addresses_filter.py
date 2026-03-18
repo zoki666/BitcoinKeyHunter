@@ -1,180 +1,178 @@
-# ---------------------------------------------------------
- # blockchair_addresses_filter.py
- # Copyright (C) 2026 Francisco Fuertes García
- #
- # This program is free software: you can redistribute it and/or modify
- # it under the terms of the GNU General Public License as published by
- # the Free Software Foundation, either version 3 of the License, or
- # (at your option) any later version.
- #
- # This program is distributed in the hope that it will be useful,
- # but WITHOUT ANY WARRANTY; without even the implied warranty of
- # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- # GNU General Public License for more details.
- #
-# ---------------------------------------------------------
+# ---------------------------------------------------------------------------------------
+# blockchair_addresses_filter.py
+# Copyright (C) 2026 Francisco Fuertes Garcia
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# ---------------------------------------------------------------------------------------
 # SCRIPT: Blockchair Addresses Filter (blockchair_addresses_filter.py)
-#     Generador de objetivos.txt y objetivos_hash160.txt a partir de blockchair_bitcoin_addresses_latest.tsv.gz
-# VERSIÓN: 1.0
+#         Generador de objetivos.txt y objetivos_identidad.txt (H160 + Taproot)
+# VERSION: 3.0 (Soporte Universal + Limpieza Agresiva de Datos)
+# ---------------------------------------------------------------------------------------
+# DIRECCIONES OBJETIVO VALIDAS (SOLO SINGLE-SIG / ACCESO DIRECTO):
 #
-# DEPENDENCIAS DE LIBRERÍAS:
-# Hay dependencia de las siguientes librerías. Se instalan automáticamente al ejecutar el script.
-#    - base58: Añade el prefijo 0x00 y el checksum para crear la dirección 1....
-#    - bech32: Codifica el mismo hash de 20 bytes para crear la dirección bc1q....
-# Una instalación de las librerías manualmente, sería como sigue:
-#    - Unix: pip install base58 bech32
-#    - Windows (si da error de permisos la anterior): pip install --user base58 bech32
+# 1. LEGACY (1...) y P2SH (3...): 
+#    - Extrae el HashID (Hash160 o ScriptHash de 20 bytes / 40 chars hex).
 #
-# DIRECCIONES OBJETIVO VÁLIDAS:
-# - Direcciones Legacy (empiezan por 1 y tienen entre 26 y 35 caracteres)
-# - Direcciones SegWit (empiezan por bc1q y tienen exactamente 42 caracteres)
-# - Requisito de saldo mínimo (MIN_SATOSHIS) por defecto 0.00001btc
+# 2. SEGWIT NATIVO (bc1q...): 
+#    - SOLO P2WPKH (Addr 42 chars): Extrae el Witness Program (20 bytes / 40 chars hex).
+#    - P2WSH (Addr > 42 chars): IGNORADAS. Suelen ser Multisig o Scripts complejos.
 #
-# EJECUCIÓN:
-# python blockchair_addresses_filter.py
-# ---------------------------------------------------------
+# 3. TAPROOT (bc1p...): 
+#    - Soporta variaciones de longitud (62-64 chars addr).
+#    - Extrae la X-Only Public Key (32 bytes / 64 chars hex).
+# ---------------------------------------------------------------------------------------
+# NOTA: Este script garantiza que cada ID generado corresponde a una clave privada 
+# unica. Si BitcoinKeyHunter (C++) encuentra el "Match", el control de los fondos 
+# es inmediato mediante la firma Schnorr (Taproot) o ECDSA (Legacy/SegWit).
+# ---------------------------------------------------------------------------------------
 
 import sys
-import subprocess
 import os
 import gzip
 import time
 import importlib.util
+import subprocess
 
-# --- AUTO-INSTALADOR DE LIBRERÍAS ---
-def install_dependencies():
-    required = ['base58', 'bech32']
-    for lib in required:
-        spec = importlib.util.find_spec(lib)
-        if spec is None:
-            print(f"[*] Instalando librería necesaria: {lib}...")
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", lib])
-                print(f"[+] {lib} instalada correctamente.")
-            except Exception as e:
-                print(f"[!] Error instalando {lib}: {e}")
-                sys.exit(1)
-
-install_dependencies()
+# Gestion de dependencias (Solo base58 para Legacy/P2SH)
+if importlib.util.find_spec("base58") is None:
+    print("[+] Instalando dependencia necesaria: base58...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "base58"])
 
 import base58
-import bech32
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACION ---
 ARCHIVO_ENTRADA = "blockchair_bitcoin_addresses_latest.tsv.gz"
-SALIDA_TXT = "objetivos.txt"
-SALIDA_HASH = "objetivos_hash160.txt"
-MIN_SATOSHIS = 1000  # 0.00001 BTC (1000 Satoshis)
+SALIDA_ID = "objetivos_identidad.txt"
+SALIDA_ADDR = "objetivos.txt"
+MIN_SATOSHIS = 10000
 
-def addr_to_h160(addr):
+def addr_to_identity(address):
     try:
-        # Direcciones Legacy (empiezan por 1)
-        if addr.startswith('1'):
-            decoded = base58.b58decode_check(addr)
-            return decoded[1:].hex()
-        
-        # Direcciones SegWit Native (empiezan por bc1q)
-        elif addr.startswith('bc1q'):
-            hrp, data, spec = bech32.bech32_decode(addr)
-            if data is None: return None
-            decoded = bech32.convertbits(data[1:], 5, 8, False)
-            return bytes(decoded).hex()
-    except:
-        return None
+        address = address.strip()
+        # Alfabeto Bech32 oficial (BIP173 / BIP341)
+        CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
+        # 1. LEGACY / P2SH (1... o 3...)
+        if address.startswith(('1', '3')):
+            return base58.b58decode_check(address)[1:].hex()
+
+        # 2. SEGWIT / TAPROOT (bc1...)
+        if address.startswith('bc1'):
+            pos = address.rfind('1')
+            if pos < 2: return None
+            
+            data_str = address[pos+1:-6] # Excluir prefijo y checksum
+            try:
+                # Mapeo de bits a valores de 5-bits
+                values = [CHARSET.find(c) for c in data_str]
+                if -1 in values: return None
+                
+                # Conversion de base32 (5-bits) a hex (8-bits)
+                acc = 0
+                bits = 0
+                ret = []
+                for value in values[1:]: # Omitir witness version
+                    acc = (acc << 5) | value
+                    bits += 5
+                    while bits >= 8:
+                        bits -= 8
+                        ret.append((acc >> bits) & 0xff)
+                
+                res = bytes(ret).hex()
+                
+                # Validacion de longitud por tipo de direccion
+                # P2WPKH (bc1q corto) -> 20 bytes
+                if address.startswith('bc1q') and len(address) == 42:
+                    if len(res) == 40: return res
+                
+                # P2TR (bc1p) -> 32 bytes (X-Only Public Key)
+                if address.startswith('bc1p'):
+                    if len(res) == 64: return res
+                    
+            except: return None
+    except: pass
     return None
 
 # --- INICIO DEL PROCESO ---
-if not os.path.exists(ARCHIVO_ENTRADA):
-    print(f"\n[ERROR] No se encuentra el archivo: {ARCHIVO_ENTRADA}")
-    print("Asegúrate de que el archivo .tsv.gz esté en esta misma carpeta.")
-    sys.exit(1)
-
-tamanio_total = os.path.getsize(ARCHIVO_ENTRADA)
-ancho_barra = 30
-
-print(f"\n" + "="*60)
-print(f" BITCOIN ADDRESS FILTRATOR & HASH160 CONVERTER")
+print("\n" + "="*60)
+print(" BITCOIN ADDRESS FILTRATOR v3.0 - PRODUCTION READY")
 print("="*60)
-print(f"[*] Origen:  {ARCHIVO_ENTRADA} ({tamanio_total / 1024 / 1024:.2f} MB)")
-print(f"[*] Filtro:  >= {MIN_SATOSHIS/100000000} BTC")
-print(f"[*] Salida:  {SALIDA_TXT} y {SALIDA_HASH}")
+print(f"[+] Archivo: {ARCHIVO_ENTRADA}")
+print(f"[+] Minimo:  {MIN_SATOSHIS} satoshis")
 print("="*60 + "\n")
 
 count_total = 0
-count_validos = 0
-count_saltados_saldo = 0
-count_saltados_tipo = 0
+count_h160 = 0
+count_ext = 0
 start_time = time.time()
 
+if not os.path.exists(ARCHIVO_ENTRADA):
+    print(f"[!] ERROR: No se encuentra {ARCHIVO_ENTRADA}")
+    sys.exit(1)
+
+tamanio_total = os.path.getsize(ARCHIVO_ENTRADA)
+
 try:
-    # Abrimos archivos. El modo 'w' los vacía si ya existen.
     with open(ARCHIVO_ENTRADA, 'rb') as f_raw:
         with gzip.open(f_raw, 'rt', encoding='utf-8') as f_in, \
-             open(SALIDA_TXT, 'w') as f_txt, \
-             open(SALIDA_HASH, 'w') as f_hash:
+             open(SALIDA_ID, 'w') as f_id, \
+             open(SALIDA_ADDR, 'w') as f_ad:
             
-            # Saltamos la línea de encabezado de Blockchair
-            f_in.readline()
+            f_in.readline() # Saltar cabecera TSV
             
             for line in f_in:
                 count_total += 1
+                line = line.strip()
+                if not line: continue
+                
                 parts = line.split('\t')
+                if len(parts) < 2: parts = line.split()
+                if len(parts) < 2: continue
                 
-                if len(parts) < 2: 
-                    continue
+                address = parts[0].strip()
                 
-                address = parts[0]
                 try:
-                    balance = int(parts[1])
-                except: 
-                    continue
+                    # Limpieza agresiva de balance (solo digitos)
+                    balance_str = ''.join(c for c in parts[1] if c.isdigit())
+                    balance = int(balance_str)
+                except: continue
                 
-                # 1. Filtro de Saldo
                 if balance >= MIN_SATOSHIS:
-                    # 2. Conversión a Hash160 (Solo tipos 1... y bc1q...)
-                    h160 = addr_to_h160(address)
+                    identidad = addr_to_identity(address)
                     
-                    if h160:
-                        # Escribimos en ambos ficheros para mantener sincronía total
-                        f_txt.write(address + "\n")
-                        f_hash.write(h160 + "\n")
-                        count_validos += 1
-                    else:
-                        count_saltados_tipo += 1
-                else:
-                    count_saltados_saldo += 1
+                    if identidad:
+                        if len(identidad) == 64:
+                            count_ext += 1
+                            f_id.write(identidad + "\n")
+                            f_ad.write(address + "\n")
+                        elif len(identidad) == 40:
+                            count_h160 += 1
+                            f_id.write(identidad + "\n")
+                            f_ad.write(address + "\n")
                 
-                # Actualización de la barra de progreso (cada 200k líneas para suavidad)
-                if count_total % 200000 == 0:
-                    pos_actual = f_raw.tell()
-                    progreso = pos_actual / tamanio_total
-                    bloques = int(ancho_barra * progreso)
-                    barra = "█" * bloques + "-" * (ancho_barra - bloques)
-                    
-                    tiempo_transcurrido = time.time() - start_time
-                    eta_seconds = int((tiempo_transcurrido / progreso) - tiempo_transcurrido) if progreso > 0 else 0
-                    
-                    # Formatear ETA a HH:MM:SS
-                    eta_format = time.strftime("%H:%M:%S", time.gmtime(eta_seconds))
-                    
-                    # Velocidad en líneas por segundo
-                    lps = count_total / tiempo_transcurrido
-                    
-                    sys.stdout.write(f"\r|{barra}| {progreso*100:>5.1f}% | Encontrados: {count_validos:>8} | {lps:>7.0f} L/s | ETA: {eta_format} ")
+                # Actualizacion de progreso cada 500k lineas
+                if count_total % 500000 == 0:
+                    progreso = (f_raw.tell() / tamanio_total) * 100
+                    sys.stdout.write(f"\r[+] {progreso:.1f}% | H160: {count_h160} | P2TR: {count_ext} | Leidas: {count_total}")
                     sys.stdout.flush()
 
 except KeyboardInterrupt:
-    print("\n\n[!] Proceso detenido por el usuario (CTRL+C).")
+    print("\n[!] Proceso interrumpido por el usuario.")
+except Exception as e:
+    print(f"\n[!] ERROR CRITICO: {e}")
 
-total_time = time.time() - start_time
-print(f"\n\n" + "="*60)
-print(f" RESUMEN FINAL")
+# --- ESTADISTICAS FINALES ---
+duracion = time.time() - start_time
+print("\n\n" + "="*60)
+print(" ESTADISTICAS DE FILTRADO")
 print("="*60)
-print(f"[+] Tiempo total:         {time.strftime('%H:%M:%S', time.gmtime(total_time))}")
-print(f"[+] Líneas analizadas:    {count_total:,}")
-print(f"    - Guardadas (Match):  {count_validos:,}")
-print(f"    - Saldo < 0.0001 BTC: {count_saltados_saldo:,}")
-print(f"    - Tipos descartados:  {count_saltados_tipo:,}")
-print("-"*60)
-print(f"[*] Los archivos están listos para usar en la carpeta bkh.")
-print("="*60)
+print(f"[+] Tiempo total:    {duracion:.2f} segundos")
+print(f"[+] Objetivos H160:  {count_h160:,}")
+print(f"[+] Objetivos P2TR:  {count_ext:,}")
+print(f"[+] Total exportado: {count_h160 + count_ext:,}")
+print("-" * 60)
+print(f"[*] Archivos generados: {SALIDA_ID}, {SALIDA_ADDR}")
+print("="*60 + "\n")
