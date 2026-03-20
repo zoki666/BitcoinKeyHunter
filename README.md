@@ -16,69 +16,80 @@ El proyecto consta de 2 modulos principales:
 
 | Carpeta | Contenido |
 | :--- | :--- |
-| `/` | Makefile universal y este README. |
-| `/bin/` | Binarios generados y librerias (.dll) para Windows. |
+| `/` | CMake y este README. |
+| `/win_dll/` | Binarios generados y librerias (.dll) para Windows. Necesarios para ejecutar, los pongo para facilitar encontrarlos. |
 | `/src/` | Codigo fuente en C++ (bkh.cpp). |
 | `/blockchair_addresses_filter/` | Script Python v3.0 y ficheros de objetivos. |
 
 ---
 
-## COMPILACION RECOMENDADA
+## COMPILACION RECOMENDADA (Via CMake)
 
 ### Para WINDOWS (MSYS2)
 
-1.  **Preparacion del Entorno**:
-    - Instala **MSYS2** (https://www.msys2.org/).
-    - Abre la terminal **"MSYS2 MinGW 64-bit"**.
-    - Ejecuta:
-      ```bash
-      pacman -Syu
-      pacman -S --needed git make mingw-w64-x86_64-gcc mingw-w64-x86_64-openssl mingw-w64-x86_64-libgomp mingw-w64-x86_64-autotools
-      ```
+1. **Preparacion del Entorno**:
+   - Instala **MSYS2** (https://www.msys2.org/).
+   - Abre la terminal **"MSYS2 MinGW 64-bit"**.
+   - Ejecuta:
+     ```bash
+     pacman -S --needed git mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-openssl mingw-w64-x86_64-libgomp mingw-w64-x86_64-autotools
+     ```
 
-2.  **Instalacion de libsecp256k1**:
-    ```bash
-    git clone [https://github.com/bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1)
-    cd secp256k1
-    ./autogen.sh
-    ./configure --enable-module-recovery --enable-experimental --enable-module-schnorrsig --enable-module-extrakeys
-    make -j$(nproc)
-    make install
-    ```
+2. **Instalacion de libsecp256k1**:
+   ```bash
+   git clone https://github.com/bitcoin-core/secp256k1
+   cd secp256k1
+   ./autogen.sh
+   ./configure --enable-module-recovery --enable-experimental --enable-module-schnorrsig --enable-module-extrakeys
+   make -j$(nproc)
+   make install
+   ```
 
-3.  **Compilacion del Hunter**:
-    Navega a la raiz del proyecto y ejecuta:
-    ```bash
-    mingw32-make clean
-    mingw32-make
-    ```
-
-### Para LINUX (Ubuntu/Debian)
-
-1.  **Dependencias**:
-    ```bash
-    sudo apt update && sudo apt install build-essential libssl-dev git automake libtool -y
-    ```
-
-2.  **Instalacion de libsecp256k1**:
-    (Mismos pasos que en Windows pero con sudo al final):
-    ```bash
-    sudo make install
-    sudo ldconfig
-    ```
-
-3.  **Compilacion**:
-    ```bash
-    make clean
-    make
-    ```
+3. **Compilacion del Hunter**:
+   Navega a la raiz del proyecto y ejecuta:
+   ```bash
+   # Configurar y generar archivos de construccion
+   cmake -B build_win -G "MinGW Makefiles"
+   
+   # Compilar el proyecto
+   cmake --build build_win
+   ```
+   *Nota: El ejecutable y el archivo lang.ini se generaran en "build/bin/"*
 
 ---
 
-## LIBRERIAS REQUERIDAS (DLLs en Windows)
+### Para LINUX (Ubuntu/Debian)
 
-Para ejecutar el .exe en Windows fuera de MSYS2, asegurese de que estas DLLs esten en la carpeta `/bin`:
-- `libsecp256k1-X.dll`, `libcrypto-3-x64.dll`, `libgomp-1.dll`, `libwinpthread-1.dll`, `libstdc++-6.dll`, `libgcc_s_seh-1.dll`.
+1. **Dependencias**:
+   ```bash
+   sudo apt update && sudo apt install build-essential cmake libssl-dev git automake libtool -y
+   ```
+
+2. **Instalacion de libsecp256k1**:
+   (Sigue los mismos pasos que en Windows, pero finaliza con privilegios):
+   ```bash
+   sudo make install
+   sudo ldconfig
+   ```
+
+3. **Compilacion**:
+   ```bash
+   cmake -B build_linux
+   cmake --build build_linux
+   ```
+
+---
+
+## EJECUCION Y LIBRERIAS (Windows)
+
+### Estructura de archivos
+Para ejecutar el programa, la carpeta de destino debe contener:
+- bkh.exe (en Windows) o bkh (en Linux).
+- lang.ini (Copiado automaticamente a la carpeta bin por CMake).
+
+### Librerias Requeridas (DLLs)
+Para ejecutar el .exe fuera de MSYS2 (recomendable siempre por consola), asegurese de que estas DLLs esten en la misma carpeta que el ejecutable:
+- libsecp256k1.dll, libcrypto-3-x64.dll, libgomp-1.dll, libwinpthread-1.dll, libstdc++-6.dll, libgcc_s_seh-1.dll.
 
 ---
 
@@ -116,6 +127,7 @@ Si este proyecto te ha sido útil y quieres apoyar el desarrollo de **Bitcoin Ke
 | Moneda / Red | Dirección |
 | :--- | :--- |
 | **Bitcoin (BTC)** | `bc1qmjuxnynmwqy4sr8nsy7q9w2f0q3c450ry57s4v` |
+| **Bitcoin (BTC) Lightning** | `ffg@cake.cash` |
 | **Monero (XMR)** | `4A8mAK9SrCA3L2e7XuLxk8iWWfvNhqFVbTVz3q8zb1K6RisgTJtExWM3QPCzzheWz4GhcnMvCUKKfFoY869jPWBw1JxJnmj` |
 | **ERC20/BEP20 (Ethereum / Polygon / BNB...)** | `0xb3F62CEB2706c9E7a27c2Aec6E3e1bA422f8097e` |
 | **TRON (TRX) / USDT (TRC20)** | `TTmzFL2NZsD3yjHKCZg5Y7oBT8QXsJ8E6h` |
