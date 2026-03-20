@@ -17,7 +17,7 @@ El proyecto consta de 2 modulos principales:
 | Carpeta | Contenido |
 | :--- | :--- |
 | `/` | CMake y este README. |
-| `/bin/` | Binarios generados y librerias (.dll) para Windows. |
+| `/win_dll/` | Binarios generados y librerias (.dll) para Windows. Necesarios para ejecutar, los pongo para facilitar encontrarlos. |
 | `/src/` | Codigo fuente en C++ (bkh.cpp). |
 | `/blockchair_addresses_filter/` | Script Python v3.0 y ficheros de objetivos. |
 

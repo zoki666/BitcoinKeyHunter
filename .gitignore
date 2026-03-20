@@ -1,5 +1,5 @@
 # Proyecto CMake y Ejecutable
-build
+build*/
 
 # Ficheros de objetivos (da igual donde esten)
 **/blockchair*

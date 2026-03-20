@@ -1,3 +1,0 @@
-/mnt/c/Users/FranciscoFuertes/Documents/Personal/GitPersonal/BitcoinKeyHunter/build_linux/CMakeFiles/bkh.dir
-/mnt/c/Users/FranciscoFuertes/Documents/Personal/GitPersonal/BitcoinKeyHunter/build_linux/CMakeFiles/edit_cache.dir
-/mnt/c/Users/FranciscoFuertes/Documents/Personal/GitPersonal/BitcoinKeyHunter/build_linux/CMakeFiles/rebuild_cache.dir
