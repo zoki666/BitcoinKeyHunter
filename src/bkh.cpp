@@ -129,7 +129,6 @@ void load_languages() {
                     string value = line.substr(sep + 1);
                     // Limpieza adicional de espacios alrededor del '='
                     key.erase(key.find_last_not_of(" \t") + 1);
-                    value.erase(0, value.find_first_not_of(" \t"));
                     T[key] = value;
                 }
             }
@@ -143,10 +142,10 @@ void load_languages() {
         T["ask_file"] = "[?] File path";
         T["ask_threads"] = "[?] Threads to FREE (0 for all): ";
         T["ask_types"] = "Mark with + to include, or - to exclude.";
-        T["search_legacy"] = "[?] Search Legacy (1...) [+/-]: ";
-        T["search_p2sh"] = "[?] Search P2SH (3...) [+/-]: ";
-        T["search_segwit"] = "[?] Search SegWit (bc1q) [+/-]: ";
-        T["search_taproot"] = "[?] Search Taproot (bc1p) [+/-]: ";
+        T["search_legacy"] = "  [?] Search Legacy (1...) [+/-]: ";
+        T["search_p2sh"] = "  [?] Search P2SH (3...) [+/-]: ";
+        T["search_segwit"] = "  [?] Search SegWit (bc1q) [+/-]: ";
+        T["search_taproot"] = "  [?] Search Taproot (bc1p) [+/-]: ";
         T["loading"] = "[i] Loading targets...";
         T["active_hilos"] = "[i] Active threads: ";
         T["stop_msg"] = "\n[!] Stopping search...";
@@ -268,7 +267,7 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, signal_handler);
     
     int n_restar = 0;
-    string file_path = "../blockchair_addresses_filter/objetivos_identidad.txt"; 
+    string file_path = "../../blockchair_addresses_filter/objetivos_identidad.txt"; 
 
     cout << "=================================================" << endl;
     cout << " " << T["title"] << endl;

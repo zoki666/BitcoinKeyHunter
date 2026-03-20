@@ -1,8 +1,5 @@
-# Ejecutables especificos por carpeta
-bin/bkh.exe
-bin/bkh
-#Traduccion del ejecutable
-bin/lang.ini
+# Proyecto CMake y Ejecutable
+build
 
 # Ficheros de objetivos (da igual donde esten)
 **/blockchair*
