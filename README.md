@@ -1,4 +1,5 @@
 # Bitcoin Key Hunter
+[🇺🇸 English] | [🇪🇸 Español](README.es.md)
 
 High-speed CPU multi-threaded searcher for Bitcoin private keys. Supports Legacy, P2SH, SegWit, and Taproot (Bech32m) formats.
 
