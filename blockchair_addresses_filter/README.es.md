@@ -1,4 +1,5 @@
 # BLOCKCHAIR ADDRESSES FILTER
+[🇺🇸 English](README.md) | [🇪🇸 Español]
 
 Script en Python que genera una lista de direcciones validas para Bitcoin Key Hunter a partir de un dump de Blockchair. Es compatible con cualquier fichero origen que respete el formato de columnas (address y balance).
 
