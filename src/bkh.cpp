@@ -15,7 +15,7 @@
 /*---------------------------------------------------------
 # SCRIPT: Bitcoin Key Hunter (bkh)
 #      Buscador Multihilo Claves Bitcoin
-# VERSION: 6.4 (Soporte Hibrido Bech32m)
+# VERSION: 6.5
 #
 # REQUISITO EXTERNO:
 # El archivo 'objetivos_identidad.txt' generado por el script de Python v2.4.
@@ -138,7 +138,7 @@ void load_languages() {
 
     // Fallback de seguridad si no existe el archivo o la seccion
     if (T.empty()) {
-        T["title"] = "BITCOIN KEY HUNTER v6.4";
+        T["title"] = "BITCOIN KEY HUNTER v6.5";
         T["ask_file"] = "[?] File path";
         T["ask_threads"] = "[?] Threads to FREE (0 for all): ";
         T["ask_types"] = "Mark with + to include, or - to exclude.";
