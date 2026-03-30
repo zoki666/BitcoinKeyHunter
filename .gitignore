@@ -1,8 +1,9 @@
 # Proyecto CMake y Ejecutable
 build*/
 
-# Ficheros de objetivos (da igual donde esten)
-**/blockchair*
+# Ignorar los ficheros de datos (los .gz y .tsv), pero NO la carpeta ni el codigo
+**/blockchair_*.gz
+**/blockchair_*.tsv
 **/objetivos.txt
 **/objetivos_identidad.txt
 
