@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------------------------
 # SCRIPT: Blockchair Addresses Filter (blockchair_addresses_filter.py)
 #         Generador de objetivos.txt y objetivos_identidad.txt (H160 + Taproot)
-# VERSION: 3.1 (Soporte Multi-idioma + Limpieza Agresiva de Datos)
+# VERSION: 3.2 (Soporte Multi-idioma + Limpieza Agresiva de Datos)
 # ---------------------------------------------------------------------------------------
 # DIRECCIONES OBJETIVO VALIDAS (SOLO SINGLE-SIG / ACCESO DIRECTO):
 #
@@ -40,8 +40,8 @@ import locale
 # --- DETECCION DE IDIOMA ---
 def get_lang():
     try:
-        lang_code = locale.getdefaultlocale()[0]
-        if lang_code and lang_code.startswith('es'):
+        lang_info = locale.getlocale()
+        if lang_info and lang_info[0] and lang_info[0].startswith('es'):
             return 'es'
     except:
         pass
@@ -51,7 +51,7 @@ LANG = get_lang()
 
 TEXTS = {
     'es': {
-        'title': "BITCOIN ADDRESS FILTRATOR v3.1",
+        'title': "BITCOIN ADDRESS FILTRATOR v3.2",
         'archivo': "[+] Archivo:",
         'minimo': "[+] Minimo:",
         'dep_inst': "[+] Instalando dependencia necesaria: base58...",
@@ -67,7 +67,7 @@ TEXTS = {
         'arch_gen': "[*] Archivos generados:"
     },
     'en': {
-        'title': "BITCOIN ADDRESS FILTRATOR v3.1",
+        'title': "BITCOIN ADDRESS FILTRATOR v3.2",
         'archivo': "[+] File:",
         'minimo': "[+] Minimum:",
         'dep_inst': "[+] Installing necessary dependency: base58...",
